@@ -1,0 +1,227 @@
+<%inherit file="/base.html"/>
+
+<%block name="content">
+<div id="app" class="app" v-cloak>
+    <el-form :model="seData" ref="ruleForm" label-width="150px" class="demo-ruleForm">
+        <el-form-item label="请选择业务：">
+            <el-select v-model="seData.biz" placeholder="请选择">
+                <el-option
+                        v-for="item in bizData"
+                        :key="item.bk_biz_id"
+                        :label="item.bk_biz_name"
+                        :value="item.bk_biz_id">
+                </el-option>
+            </el-select>
+        </el-form-item>
+        <el-form-item label="请选择主机IP：">
+            <el-input
+                    type="textarea"
+                    placeholder="请输入内容"
+                    v-model="seData.ip"
+                    maxlength="30"
+                    show-word-limit>
+            </el-input>
+        </el-form-item>
+        <el-form-item>
+            <el-button type="primary" @click="getHost">查询</el-button>
+        </el-form-item>
+    </el-form>
+    <div class="panel-content">
+        <i-table border :columns="taTitle" :data="taData"></i-table>
+    </div>
+</div>
+<style>
+    [v-cloak] {
+        display: none !important;
+    }
+</style>
+</%block>
+<script src="${STATIC_URL}conf/conf.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        data() {
+            return {
+                bizData: [],
+                taTitle: [
+                    {
+                        title: '内网IP',
+                        key: 'ip'
+                    },
+                    {
+                        title: '系统名',
+                        key: 'os'
+                    },
+                    {
+                        title: '主机名',
+                        key: 'host'
+                    },
+                    {
+                        title: '云区域',
+                        key: 'cloud'
+                    },
+                    {
+                        title: 'Mem(%)',
+                        key: 'mem'
+                    },
+                    {
+                        title: 'Disk(%)',
+                        key: 'disk'
+                    },
+                    {
+                        title: 'CPU(%)',
+                        key: 'cpu'
+                    },
+                    {
+                        title: '操作',
+                        render: (h, params) => {
+                            return h('div', {}, [
+                                h('el-button', {
+                                    props: {
+                                        type: 'primary',
+                                        size: 'small'
+                                    },
+                                    on: {
+                                        'click': () => {
+                                            this.runScript(params.row.ip)
+                                        }
+                                    }
+                                }, '查询'),
+                                h('el-button', {
+                                    props: {
+                                        type: params.row.monitor ? 'success' : 'info',
+                                        size: 'small'
+                                    },
+                                    on: {
+                                        'click': () => {
+                                            this.addHost(params.row)
+                                        }
+                                    }
+                                }, '性能')
+                            ])
+                        }
+                    }
+                ],
+                taData: [],
+                seData: {
+                    biz: '',
+                    ip: ''
+                }
+            }
+        },
+        created() {
+            this.openFullScreen(2000)
+            this.$http.post('search_business').then(res => {
+                this.bizData = res.data
+                this.seData.biz = res.data[0].bk_biz_id
+            })
+        },
+        methods: {
+            getHost() {
+                this.openFullScreen(2000)
+                this.$http.post('search_host_new', this.seData).then(res => {
+                    this.taData = res.data
+                })
+            },
+            runScript(ip) {
+                this.$confirm('是否查询系统资源使用情况？', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    this.openFullScreen(3000)
+                    this.$http.post('host_performance?bk_host_innerip=' + ip + '&id=' + this.seData.biz).then(res => {
+                        if (res.result) {
+                            this.getHost()
+                        }
+                    })
+                }).catch(() => {
+                    this.$message({
+                        type: 'info',
+                        message: '已取消'
+                    });
+                });
+            },
+            addHost(data) {
+                this.$confirm(data.monitor ? '是否从周期检查列表中移除？' : '是否加入周期检查列表?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    this.$http.post('add_monitor', data).then(res => {
+                        this.getHost()
+                    })
+                }).catch(() => {
+                    this.$message({
+                        type: 'info',
+                        message: '已取消'
+                    });
+                });
+            },
+            drawLeft() {
+                setTimeout(() => {
+                    //饼图
+                    let panChart = echarts.init(document.getElementById('panChart'));
+                    panChart.setOption({
+                        title: {
+                            x: 'center'
+                        },
+                        tooltip: {
+                            trigger: 'item',
+                            formatter: "{a} <br/>{b} : {c} ({d}%)"
+                        },
+                        calculable: true,
+                        series: [
+                            {
+                                type: 'pie',
+                                data: [
+                                    {value: this.listFilter.length, name: '正常'},
+                                    {value: this.taData.length - this.listFilter.length, name: '异常'}
+                                ]
+                            }
+                        ]
+                    });
+                }, 500)
+            },
+            openFullScreen(time) {
+                const loading = this.$loading({
+                    lock: true,
+                    text: 'Loading',
+                    spinner: 'el-icon-loading',
+                    background: 'rgba(0, 0, 0, 0.7)'
+                });
+                setTimeout(() => {
+                    loading.close();
+                }, time);
+            }
+        },
+    })
+</script>
+<style>
+    .app {
+        padding: 10px !important;
+        overflow: hidden;
+    }
+
+    .ip-wrap {
+        border: 1px solid #ccc;
+        height: 50px;
+    }
+
+    .left-ip {
+        float: left;
+        width: 70%;
+        height: 41px;
+        border: 1px solid #ccc;
+    }
+
+    .right-del {
+        float: right;
+        padding: 3px 0;
+        width: 30%;
+        height: 41px;
+        border: 1px solid #ccc;
+        border-left: none;
+    }
+</style>
+

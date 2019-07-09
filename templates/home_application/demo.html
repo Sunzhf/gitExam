@@ -1,0 +1,188 @@
+<%inherit file="/base.html"/>
+
+<%block name="content">
+<div id="demo" class="demo">
+    <div style="margin-top: 10px;margin-bottom: 10px" class="form-inline searchs">
+        账号：
+        <i-input style="width: 200px;margin-right: 20px" v-model="seData.count"></i-input>
+        <i-button type="primary" @click="getList()">查询</i-button>
+        <i-button type="info" @click="showModal=true">添加人员</i-button>
+    </div>
+    <div style="margin-top:20px;">
+        <div class="panel-content">
+            <i-table border ref="selection" :columns="tableColumns" :data="accountList"></i-table>
+            <!--<input id="uploadFile" @change="uploadFile" name="uploadFile" style="width:260px"
+                   type="file"/>-->
+        </div>
+        <Modal v-model="showModal"
+               title="添加人员"
+               @on-ok="ok">
+            <div class="form-horizontal">
+                <div class="form-group">
+                    <label for="inputCount3" class="col-sm-3 control-label">账号：</label>
+                    <div class="col-sm-7">
+                        <i-input v-model="test.count" style="width:260px"></i-input>
+                    </div>
+                    <span class="text-danger mt5 fl">*</span>
+                </div>
+                <div class="form-group">
+                    <label for="inputCount3" class="col-sm-3 control-label">显示名称：</label>
+                    <div class="col-sm-7">
+                        <i-input v-model="test.name" style="width:260px"></i-input>
+                    </div>
+                    <span class="text-danger mt5 fl">*</span>
+                </div>
+                <div class="form-group">
+                    <label for="inputEmail3" class="col-sm-3 control-label">所属组织：</label>
+                    <div class="col-sm-7">
+                        <i-select v-model="test.org" style="width:260px">
+                            <i-option v-for="item in orgGroup"
+                                      :value="item.name"
+                                      :key="item.id">
+                                {{ item.name }}
+                            </i-option>
+                        </i-select>
+                    </div>
+                    <span class="text-danger mt5 fl">*</span>
+                </div>
+                <div class="form-group">
+                    <label for="inputEmail3" class="col-sm-3 control-label">上级领导：</label>
+                    <div class="col-sm-7">
+                        <i-select v-model="test.super" style="width:260px">
+                            <i-option v-for="item in superList"
+                                      :value="item.name"
+                                      :key="item.id">
+                                {{ item.name }}
+                            </i-option>
+                        </i-select>
+                    </div>
+                    <span class="text-danger mt5 fl">*</span>
+                </div>
+            </div>
+        </Modal>
+        <style>
+            [v-cloak] {
+                display: none !important;
+            }
+        </style>
+    </div>
+</div>
+</%block>
+
+<script src="${STATIC_URL}conf/conf.js"></script>
+<script>
+    new Vue({
+        el: '#demo',
+        data() {
+            return {
+                accountList: [],
+                tableColumns: [
+                    {
+                        title: '账号',
+                        key: 'account'
+                    },
+                    {
+                        title: '显示名',
+                        key: 'name'
+                    },
+                    {
+                        title: '所属组织',
+                        key: 'organization'
+                    },
+                    {
+                        title: '上级领导',
+                        key: 'super_member',
+                    },
+                    {
+                        title: '操作',
+                        width: 230,
+                        align: 'center',
+                        render: (h, params) => {
+                            return h('div', [
+                                h('Button', {
+                                    props: {
+                                        type: 'error',
+                                        size: 'small'
+                                    },
+                                    style: {
+                                        marginRight: '5px'
+                                    },
+                                    on: {
+                                        click: () => {
+                                            this.deleteTe(params.row.id)
+                                        }
+                                    }
+                                }, '删除')
+                            ]);
+                        }
+                    }
+                ],
+                testData: {},
+                testId: '',
+                seData: {
+                    count: ''
+                },
+                showModal: false,
+                test: {
+                    count: '',
+                    name: '',
+                    org: '',
+                    super: ''
+                },
+                superList: [],
+                orgGroup: []
+            }
+        },
+        mounted() {
+            //var r = window.location.search
+            //this.testId = r.split('=')[1]
+            this.getList()
+            this.$http.post('search_org', {name: ''}).then(res => {
+                this.orgGroup = res.data
+            })
+        },
+        methods: {
+            getList() {
+                this.test = {
+                    count: '',
+                    name: '',
+                    org: '',
+                    super: ''
+                }
+                this.superList = [{name: '无上级领导', id: -1}]
+                this.$http.post('get_member', this.seData).then(res => {
+                    this.accountList = res.data
+                    this.superList = this.superList.concat(res.data)
+                })
+            },
+            uploadFile() {
+                let file = document.getElementById('uploadFile').files[0];
+                this.fileData = new FormData();
+                this.fileData.append('file', file);
+                this.fileData.append('id', this.testId);
+                this.$http.post('ecs_excel_export', this.fileData).then(res => {
+                    //this.getStudent()
+                })
+            },
+            ok() {
+                this.$http.post('add_member', this.test).then(res => {
+                    this.getList()
+                })
+            },
+            deleteTe(id) {
+                this.$http.get('delete_member?id=' + id).then(res => {
+                    if (res.result) this.getList()
+                    else {
+                        alert(res.data)
+                    }
+                })
+            }
+        },
+    })
+</script>
+<style>
+    .demo {
+        padding: 10px;
+        width: 100%;
+    }
+</style>

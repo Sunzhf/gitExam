@@ -1,0 +1,97 @@
+<%inherit file="/base.html"/>
+
+<%block name="content">
+<div id="chart" class="chart">
+    <div style="margin-top: 10px;margin-bottom: 10px" class="form-inline searchs">
+        请选择主机：
+        <i-select v-model="test.id" style="width:260px" @on-change="getList">
+            <i-option v-for="item in orgGroup"
+                      :value="item.host_ip"
+                      :key="item.host_ip">
+                {{ item.host_ip }}
+            </i-option>
+        </i-select>
+    </div>
+    <div style="margin-top:20px;width: 100%;">
+        <div id="panChart" style="width: 100%;height: 400px"></div>
+        <style>
+            [v-cloak] {
+                display: none !important;
+            }
+        </style>
+    </div>
+</div>
+</%block>
+
+<script src="${STATIC_URL}conf/conf.js"></script>
+<script>
+    new Vue({
+        el: '#chart',
+        data() {
+            return {
+                orgGroup: [],
+                test: {
+                    id: ''
+                }
+            }
+        },
+        mounted() {
+            //var r = window.location.search
+            //this.testId = r.split('=')[1]
+            //this.getList()
+            this.openFullScreen(2000)
+            this.$http.post('search_monitor_host').then(res => {
+                this.orgGroup = res.data
+            })
+        },
+        methods: {
+            getList() {
+                this.openFullScreen(2000)
+                this.$http.get('get_host_chart?ip=' + this.test.id).then(res => {
+                    this.drawLeft(res.data)
+                })
+            },
+            drawLeft(data) {
+                //柱形图
+                let panChart = echarts.init(document.getElementById('panChart'));
+                panChart.setOption({
+                    title: {
+                        text: '主机MEM,DISK,CPU使用率曲线图',
+                    },
+                    tooltip: {
+                        trigger: 'axis'
+                    },
+                    xAxis: [
+                        {
+                            type: 'category',
+                            data: data.time
+                        }
+                    ],
+                    yAxis: [
+                        {
+                            type: 'value'
+                        }
+                    ],
+                    series: data.series
+                });
+            },
+            openFullScreen(time) {
+                const loading = this.$loading({
+                    lock: true,
+                    text: 'Loading',
+                    spinner: 'el-icon-loading',
+                    background: 'rgba(0, 0, 0, 0.7)'
+                });
+                setTimeout(() => {
+                    loading.close();
+                }, time);
+            }
+        },
+    })
+</script>
+<style>
+    .chart {
+        padding: 10px;
+        width: 100%;
+    }
+</style>
